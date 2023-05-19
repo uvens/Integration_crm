@@ -1,0 +1,6 @@
+systemuser_id_crm : !!str 'systemuser_id_crm'
+contact_id_crm: !!str 'contact_id_crm'
+crm_login : !!str 'crm_login'
+crm_password : !!str 'crm_password'
+base_url : !!str 'base_url'
+file_name : !!str 'file_name'
