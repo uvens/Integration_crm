@@ -1,6 +1,7 @@
-systemuser_id_crm : !!str 'systemuser_id_crm'
-contact_id_crm: !!str 'contact_id_crm'
-crm_login : !!str 'crm_login'
-crm_password : !!str 'crm_password'
-base_url : !!str 'base_url'
-file_name : !!str 'file_name'
+systemuser_id_crm : !!str 'bb72dff4-9037-e611-80c3-00505693217d'
+contact_id_crm: !!str '94b2c2fc-c563-e611-80c7-00505693217d'
+crm_login : !!str 'first\iventev.e'
+crm_password : !!str 'PUk4XmSy'
+base_url : !!str 'http://srvr-crm.first/RusconTest/api/data/v8.2/'
+file_name : !!str 'users.csv'
+Processing : !!int 1

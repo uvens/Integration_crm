@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig()
 logger = logging.getLogger('Integration_CRM')
 
 
@@ -29,3 +29,4 @@ def init_my_logging():
     console.setLevel(logging.INFO)
 
 init_my_logging()
+

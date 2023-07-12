@@ -52,33 +52,55 @@ class CrmClient(object):
         file = result.json()
         return file
 
-    def update_contact_post_account(self, rn_number, value):
-        logger.info('update_contact_put_account')
-        account_id = self.get_contact_account(rn_number)['value'][0]['accountid']
-        payload = {"subject": value['subject'], "description": value["text"],
+    def update_contact_post_account(self, rn_number, value, user=None):
+        account = self.get_contact_account(rn_number)['value']
+        flag = value['flag'] != 'INBOX'
+        if not account:
+            return False
+        logger.info(f'{user} update_contact_put_account')
+        account_id = account[0]['accountid']
+        payload = {"subject": value['subject'],
+                   "description": value['text'],
                    "regardingobjectid_account@odata.bind": f"/accounts({account_id})",
-                   "email_activity_parties": [
-                       {"partyid_systemuser@odata.bind": f"/systemusers({self.systemuser_id})",
-                        "participationtypemask": 1},
-                       {"partyid_contact@odata.bind": f"/contacts({self.contact_id})",
-                        "participationtypemask": 2}]}
+                   "email_activity_parties": [{
+                       "addressused": value['sender'],
+                       "participationtypemask": 1
+                   },
+                       *[{"addressused": i, "participationtypemask": 2} for i in value['recipients']]
+                   ],
+                   "directioncode": flag,
+                   "statecode": 1,
+                   }
 
-        answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
-                               data=json.dumps(payload))
-        logger.info(f'Update to CRM update_contact_put_id {answer}')
-        return answer
+        # answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
+        #                        data=json.dumps(payload))
+        # logger.info(f'Update to CRM user({user}) update_contact_put_id {answer}')
+        # return answer
 
-    def update_contact_post_opportunity(self, name, value):
-        logger.info('update_contact_put_opportunity')
-        opportunity_id = self.get_contact_opportunity(name)['value'][0]['opportunityid']
+    def update_contact_post_opportunity(self, name, value, user=None):
+        opportunity = self.get_contact_opportunity(name)['value']
+        flag = value['flag'] != 'INBOX'
+        if not opportunity:
+            return False
+        logger.info(f'{user} update_contact_put_opportunity')
+        opportunity_id = opportunity[0]['opportunityid']
         payload = {"subject": value['subject'], "description": value["text"],
                    "regardingobjectid_opportunity@odata.bind": f"/opportunities({opportunity_id})",
-                   "email_activity_parties": [
-                       {"partyid_systemuser@odata.bind": f"/systemusers({self.systemuser_id})",
-                        "participationtypemask": 1},
-                       {"partyid_contact@odata.bind": f"/contacts({self.contact_id})",
-                        "participationtypemask": 2}]}
-        answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
-                               data=json.dumps(payload))
-        logger.info(f'Update to CRM update_contact_put_name {answer}')
-        return answer
+                   "email_activity_parties": [{
+                       "addressused": value['sender'],
+                       "participationtypemask": 1
+                   },
+                       *[{"addressused": i, "participationtypemask": 2} for i in value['recipients']]
+                   ],
+                   "directioncode": flag,
+                   "statecode": 1,
+                   }
+
+        # answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
+        #                        data=json.dumps(payload))
+        # logger.info(f'Update to CRM user({user})  update_contact_put_name {answer}')
+        # return answer
+
+
+
+
