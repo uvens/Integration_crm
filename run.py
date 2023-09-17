@@ -46,6 +46,7 @@ def write_crm():
 
 
 
+
 if __name__ == '__main__':
     write_crm()
     LocalDB().delete_by_date()

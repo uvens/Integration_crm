@@ -15,7 +15,7 @@ def init_my_logging():
     """
     logger.setLevel(logging.DEBUG)
     log_file_name = os.path.splitext(os.path.realpath('logging'))[0] + '.log'
-    handler = RotatingFileHandler(log_file_name, maxBytes=1.5 * pow(1024, 3), backupCount=3)
+    handler = RotatingFileHandler(log_file_name, maxBytes=1.5 * pow(1024, 2), backupCount=3)
     log_format = "%(asctime)-15s [{}:%(name)s:%(lineno)s:%(funcName)s:%(levelname)s] %(message)s".format(os.getpid())
     handler.setLevel(logging.DEBUG)
     try:

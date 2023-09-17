@@ -72,10 +72,10 @@ class CrmClient(object):
                    "statecode": 1,
                    }
 
-        # answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
-        #                        data=json.dumps(payload))
-        # logger.info(f'Update to CRM user({user}) update_contact_put_id {answer}')
-        # return answer
+        answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
+                               data=json.dumps(payload))
+        logger.info(f'Update to CRM user({user}) update_contact_put_id {answer}')
+        return answer
 
     def update_contact_post_opportunity(self, name, value, user=None):
         opportunity = self.get_contact_opportunity(name)['value']
@@ -96,10 +96,10 @@ class CrmClient(object):
                    "statecode": 1,
                    }
 
-        # answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
-        #                        data=json.dumps(payload))
-        # logger.info(f'Update to CRM user({user})  update_contact_put_name {answer}')
-        # return answer
+        answer = requests.post(self.baseurl + "emails", auth=self.get_auth(), headers=self.headers,
+                               data=json.dumps(payload))
+        logger.info(f'Update to CRM user({user})  update_contact_put_name {answer}')
+        return answer
 
 
 

@@ -4,6 +4,8 @@ import os.path
 import string
 from email.header import decode_header
 import datetime
+import charset_normalizer as cn
+from bs4 import BeautifulSoup
 from crm import CrmClient
 from tinydb import TinyDB, Query
 import re
@@ -55,6 +57,31 @@ class LocalDB:
                     db.remove(query.Date < date)
 
 
+def del_charset(text):
+    try:
+        soup = BeautifulSoup(text, 'html.parser')
+        charset = soup.find('meta')
+        if charset and charset.get('content') is not None and 'charset' in charset.get('content').lower():
+            charset.extract()
+            return soup.prettify()
+        return text
+    except RecursionError:
+        return text
+
+
+def change_charset(text, char):
+    try:
+        soup = BeautifulSoup(text, 'html.parser')
+        charset = soup.find('meta')
+        if charset and charset.get('content') is not None and 'charset' in charset.get('content').lower():
+            tag = charset.attrs
+            tag['content'] = tag['content'].split(';')[0] + ';charset=' + char
+            return soup.prettify()
+        return text
+    except RecursionError:
+        return text
+
+
 def check_email(email_user):
     pat = "^[a-zA-Z0-9-_.]+@[a-zA-Z0-9]+\.[a-z]{1,3}$"
     if re.match(pat, email_user):
@@ -73,8 +100,12 @@ class Mail:
         self.request_date_yesterday = f'(SINCE "{self.yesterday.strftime(self.date_format)}") (BEFORE "{self.today.strftime(self.date_format)}")'
 
     def connect_email(self, mail_login, mail_password):
-        imap = imaplib.IMAP4_SSL(self.server)
-        imap.login(mail_login, mail_password)
+        try:
+            imap = imaplib.IMAP4_SSL(self.server)
+            imap.login(mail_login, mail_password)
+        except Exception:
+            logger.info(f'No connection {mail_login} wrong password or login')
+            return
         self.list_table = LocalDB(mail_login).id_list
         INBOX, SENT = self.get_inbox_sent(imap.list())
         logger.info('Connect Email Inbox')
@@ -94,10 +125,20 @@ class Mail:
         list_date_title = []
         for post in sorted(imap.search(None, date)[1][0].split(), reverse=True):
             res, msg = imap.fetch(post, '(RFC822)')
-            msg = email.message_from_bytes(msg[0][1])
+            try:
+                msg = email.message_from_bytes(msg[0][1])
+            except Exception as ex:
+                logger.info('error read massage ', str(ex))
+                try:
+                    msg = self.for_massage(msg)
+                except Exception as exx:
+                    logger.info(f'{msg} error {exx}')
+                    continue
+
             massage_id, date = self.get_message_id_date(msg)
             if massage_id in self.list_table:
                 break
+
             sender, recipients = self.get_sender_recipients(msg)
             title, text = self.get_message_title_text_file(msg)
             list_date_title.append((massage_id, date))
@@ -118,7 +159,6 @@ class Mail:
         logger.info(f'{user} (title: {title})')
         title_end = title.split('#')
         if len(title_end) > 1:
-            logger.info(f'{user} write crm {title_end[1]}')
             value = {
                 'text': text,
                 'subject': title,
@@ -126,19 +166,29 @@ class Mail:
                 'sender': sender,
                 'flag': flag
             }
-            for tit in title_end:
-                res = tit.strip(string.punctuation)
+            for tit in title_end[1:]:
+                res = '-'.join(self.find_pattern(tit))
                 if not res:
                     continue
+                logger.info(f'{user} write crm {res}')
                 if res[0] == 'K' or res[0] == 'К':
-                    if CrmClient().update_contact_post_account(tit, value, user=user):
+                    if CrmClient().update_contact_post_account(res, value, user=user):
                         return True
                 elif res[0] == 'П':
-                    if CrmClient().update_contact_post_opportunity(tit, value, user=user):
+                    if CrmClient().update_contact_post_opportunity(res, value, user=user):
                         return True
             else:
                 logger.info('Не найден #номер_проекта и #номер_контрагента')
         return False
+
+    def for_massage(self, massage):
+        logger.info('error massage')
+        for n, m in enumerate(massage):
+            try:
+                msg = email.message_from_bytes(massage[n][1])
+                return msg
+            except Exception:
+                continue
 
     def get_message_id_date(self, msg):
         logger.info('get_message_id_date')
@@ -148,15 +198,16 @@ class Mail:
 
     def get_message_title_text_file(self, msg):
         logger.info('get_message_title_text_file')
-        title = self.get_title(decode_header(msg['SUBJECT'])[0]) if msg["Subject"] else 'По умолчанию'
+        try:
+            title = self.get_title(decode_header(msg['SUBJECT'])[0]) if msg["Subject"] else 'По умолчанию'
+        except Exception as ex:
+            logger.info(f"{ex} Ошибка заголовка")
+            title = 'По умолчанию'
         text = ''
         for i in msg.walk():
             if i.get_content_maintype() == 'text' and i.get_content_subtype() == 'html':
-                # text = self.get_text(i)
                 html = f"{self.get_text(i)}"
                 text = html.replace("b'", "")
-            # if i.get_content_disposition() == 'attachment':
-            #     self.get_file(i)
         return title, text
 
     def get_title(self, title):
@@ -170,7 +221,10 @@ class Mail:
             subject, encoding = title
             if encoding is None:
                 if type(subject) == bytes:
-                    return subject.decode('utf-8')
+                    try:
+                        return subject.decode('utf-8')
+                    except Exception as ex:
+                        return 'По умолчанию'
                 return subject
             else:
                 try:
@@ -181,12 +235,15 @@ class Mail:
 
     def get_text(self, msg):
         logger.info('get_text')
+        text = msg.get_payload(decode=True)
+        detect = cn.detect(text)
         try:
-            text = msg.get_payload(decode=True).decode()
-            return text
-        except UnicodeDecodeError:
-            text = msg.get_payload(decode=True).decode('KOI8-R')
-            return text
+            text_result = text.decode(detect['encoding'])
+            result = change_charset(text_result, 'utf-8')
+        except AttributeError:
+            result = change_charset(text, 'utf-8')
+
+        return result
 
     def get_date(self, date):
         logger.info('get_date')
@@ -214,11 +271,12 @@ class Mail:
     def get_sender_recipients(self, msg):
         ADDR_PATTERN = re.compile('<(.*?)>')
         try:
-            sender = msg['From'].split('=')[-1].replace('<', '').replace('>', '').strip() if not msg['Return-path'].strip(
-            '<>') else \
+            sender = msg['From'].split('=')[-1].replace('<', '').replace('>', '').strip() if not msg[
+                'Return-path'].strip(
+                '<>') else \
                 msg['Return-path'].strip('<>')
         except Exception:
-            sender = msg['From'].split('<')[1].replace('>','')
+            sender = msg['From'].split('<')[1].replace('>', '')
         recipients = []
         addr_fields = ['To', 'Cc', 'Bcc']
 
@@ -231,18 +289,33 @@ class Mail:
 
     def header_decode(self, header):
         hdr = ""
-        for text, encoding in email.header.decode_header(header):
-            if isinstance(text, bytes):
-                text = text.decode(encoding or "utf-8")
-            hdr += text
-        return hdr
+        try:
+            for text, encoding in email.header.decode_header(header):
+                if isinstance(text, bytes):
+                    text = text.decode(encoding or "utf-8")
+                hdr += text
+            return hdr
+        except Exception as ex:
+            logger.info(f"Ошибка {ex}")
+            return hdr
 
     def get_inbox_sent(self, lst):
-        for i in lst[1]:
-            msg = i.decode().split('/')
-            if 'Inbox' in msg[0]:
-                inbox = ''.join([i for i in msg[1] if i.isalnum()])
-            elif 'Sent' in msg[0]:
-                sent = msg[1].replace('"', '').replace("'", '')
+        try:
+            for i in lst[1]:
+                msg = i.decode().split('/')
+                if 'Inbox' in msg[0]:
+                    inbox = ''.join([i for i in msg[1] if i.isalnum()])
+                elif 'Sent' in msg[0]:
+                    sent = msg[1].replace('"', '').replace("'", '')
 
-        return inbox, sent
+            return inbox, sent
+        except Exception as ex:
+            logger.info(f"Ошибка {ex}")
+            inbox,sent = 'INBOX','SENT'
+            return inbox,sent
+
+    def find_pattern(self, string):
+        import re
+        pattern = r"([А-ЯA-Z])-([А-ЯA-Zа-яa-z]+)-(\d+)"
+        matches = re.findall(pattern, string)
+        return matches[0] if len(matches) >= 1 else ''
