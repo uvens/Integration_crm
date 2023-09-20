@@ -5,7 +5,7 @@ from email.header import decode_header
 import datetime
 from email.message import Message
 import charset_normalizer as cn
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup,Tag
 from crm import CrmClient
 from tinydb import TinyDB, Query
 import re
@@ -74,7 +74,7 @@ class LocalDB:
         for root, dirs, files in os.walk('email_users/'):
             for name in files:
                 with TinyDB(root + name) as db:
-                    date = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+                    date: str = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
                     logger.info('Delete last date')
                     query = Query()
                     db.remove(query.Date < date)
@@ -89,9 +89,9 @@ def change_charset(text: str, char: str) -> str:
     """
     try:
         soup: BeautifulSoup = BeautifulSoup(text, 'html.parser')
-        charset = soup.find('meta')
+        charset: Tag = soup.find('meta')
         if charset and charset.get('content') is not None and 'charset' in charset.get('content').lower():
-            tag = charset.attrs
+            tag: dict = charset.attrs
             tag['content'] = tag['content'].split(';')[0] + ';charset=' + char
             return soup.prettify()
         return text
