@@ -1,4 +1,3 @@
-import csv
 import os
 import time
 from functools import wraps
@@ -24,17 +23,25 @@ def time_count(func):
 
 @time_count
 def write_crm():
+    """
+    Основной функция для запуска работы скрипта, в котором считываются данные из yaml файла и если файл с пользователями
+     не зашифрован шифруется при помощи rsa и сохраняется в директории с проектом.
+     Если зашифрован раскодировываем и запускается паралелльная обработка пользователей в мультипроцессорной обработке
+    :return:
+    """
     with open("config.yaml", 'r') as stream:
         data_loaded = yaml.safe_load(stream)
-        file_name = data_loaded['file_name']
-        processing = data_loaded['Processing']
+        file_name: str = data_loaded['file_name']
+        processing: int = data_loaded['Processing']
         user = []
         if os.path.isfile(file_name):
             encrypt_user(file_name)
-            users = decrypt_user(file_name)
+            users: list = decrypt_user(file_name)
         else:
-             users = decrypt_user(file_name)
+             users: list = decrypt_user(file_name)
         for row in users:
+            email_user: str
+            password: str
             email_user, password = row[0].split(';')
             if not check_email(email_user):
                 logger.info(f'Wrong email {email_user}')

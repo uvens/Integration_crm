@@ -3,9 +3,14 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 import csv
 import os
+from mail import Tuple
 
 
-def get_key():
+def get_key() ->Tuple:
+    """
+    Генерация ключей для шифрования данных
+    :return: Приватный и публичный ключ
+    """
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
     public_key = private_key.public_key()
     public_key_pem = public_key.public_bytes(encoding=serialization.Encoding.PEM,
@@ -24,7 +29,12 @@ def get_key():
     return public_key, private_key
 
 
-def encrypt_user(file):
+def encrypt_user(file: str):
+    """
+    Шифрование данных при помощи ключей private and public при помощи ключей
+    :param file:Файл с email и password
+    :return:
+    """
     public_key, _ = get_key()
 
     block_size = 446
@@ -46,7 +56,12 @@ def encrypt_user(file):
     os.remove(file)
 
 
-def decrypt_user(file_name):
+def decrypt_user(file_name: str):
+    """
+    Раскодировка данных при помощи private ключа
+    :param file_name: Файл с закодированными данными с email и password
+    :return: Расшифрованный csv файл с данными пользователей(email, password)
+    """
     with open("private_key.pem", "rb") as f:
         private_key = load_pem_private_key(f.read(), password=None)
 
